@@ -11,44 +11,53 @@ func init() {
 	InitializeListStore()
 }
 
-//var comm1 = make(chan *[]string)
-//var comm2 = make(chan *[]string)
-//var comm3 = make(chan *[]string)
-//var comm4 = make(chan *[]string)
+var comm1 chan *[]string
+var comm2 chan *[]string
+var comm3 chan *[]string
+var comm4 chan *[]string
 
 func mux(c *gin.Context) {
 
 	var action Command
 
-	if err := c.BindJSON(&action); err != nil {
+	if err := c.ShouldBindJSON(&action); err != nil {
 		fmt.Println(err)
 		return
 	}
-	
+
 	list := strings.Split(action.Command, " ")
+
+	go get(c, comm1)
+	go set(c, comm2)
+	go qpush(c, comm3)
+	go qpop(c, comm4)
+	
+	go deleteExpiredKeys()
 
 	switch list[0] {
 	case "GET":
-		get(c, &list)
+		comm1 <- &list
 	case "SET":
-		set(c, &list)
+		comm2 <- &list
 	case "QPUSH":
-		qpush(c, &list)
+		comm3 <- &list
 	case "QPOP":
-		qpop(c, &list)
+		comm4 <- &list
 	default:
 		c.JSON(400, gin.H{"message": "Invalid Command or Invalid Command"})
 	}
-
 }
 
 func main() {
 
+	comm2 = make(chan *[]string)
+	comm3 = make(chan *[]string)
+	comm1 = make(chan *[]string)
+	comm4 = make(chan *[]string)
+
 	router := gin.Default()
 
-	go deleteExpiredKeys()
-
-	router.POST("/", mux)
+	router.GET("/", mux)
 
 	if err := router.Run(":3000"); err != nil {
 		fmt.Println(err)

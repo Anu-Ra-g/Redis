@@ -5,52 +5,47 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 )
 
-var keyStoreLock sync.Mutex
+//var keyStoreLock sync.Mutex
 
 func init() {
 	InitializeKeystore()
 }
 
-func containsStringElement(arr []string, target string) bool {
-	for _, element := range arr {
-		if element == target {
-			return true
-		}
-	}
-	return false
-}
+func get(c *gin.Context, ch <-chan *[]string) {
+	req := <-ch
+	cmd := *req
 
-func get(c *gin.Context, ch *[]string) {
-	keyStoreLock.Lock()
-	defer keyStoreLock.Unlock()
+	keystore.mu.Lock()
+	defer keystore.mu.Unlock()
 
-	cmd := *ch
+	val, exists := keystore.keys[cmd[1]]
 
-	if val, exists := keystore[cmd[1]]; exists {
+	fmt.Println(exists)
+	if exists {
 		c.JSON(http.StatusOK, gin.H{
 			"value": val.Value,
 		})
-	} else {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "Key does not exits",
-		})
+		return
 	}
 
-	fmt.Println(keystore)
+	c.JSON(http.StatusNotFound, gin.H{
+		"error": "key not found"})
+
+	//fmt.Println("updated", keystore.keys)
 
 }
 
-func set(c *gin.Context, ch *[]string) {
-	keyStoreLock.Lock()
-	defer keyStoreLock.Unlock()
+func set(c *gin.Context, ch <-chan *[]string) {
+	req := <-ch
+	cmd := *req
 
-	cmd := *ch
+	keystore.mu.Lock()
+	defer keystore.mu.Unlock()
 
-	_, exists := keystore[cmd[1]]
+	_, exists := keystore.keys[cmd[1]]
 
 	dummy := KeyModel{
 		Value: cmd[2],
@@ -69,22 +64,20 @@ func set(c *gin.Context, ch *[]string) {
 		dummy.InsertTime = time.Now()
 	}
 
-	keystore[cmd[1]] = dummy
+	keystore.keys[cmd[1]] = dummy
 
-	c.JSON(http.StatusOK, gin.H{
-		"updated_value": dummy,
-	})
+	//fmt.Println(keystore.keys)
 }
 
 func deleteExpiredKeys() {
 	for {
 		time.Sleep(10 * time.Second)
 
-		keyStoreLock.Lock()
-
 		currentTime := time.Now()
 
-		for key, item := range keystore {
+		keystore.mu.Lock()
+
+		for key, item := range keystore.keys {
 			if item.ExTime != "" {
 				exTimeValue, err := strconv.Atoi(item.ExTime)
 				if err != nil {
@@ -93,11 +86,21 @@ func deleteExpiredKeys() {
 
 				timeDifference := currentTime.Sub(item.InsertTime)
 				if int(timeDifference.Seconds()) >= exTimeValue {
-					delete(keystore, key)
+					delete(keystore.keys, key)
 				}
 			}
 		}
 
-		keyStoreLock.Unlock()
+		keystore.mu.Unlock()
+
 	}
+}
+
+func containsStringElement(arr []string, target string) bool {
+	for _, element := range arr {
+		if element == target {
+			return true
+		}
+	}
+	return false
 }

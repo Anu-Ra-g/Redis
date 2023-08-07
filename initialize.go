@@ -1,18 +1,29 @@
 package main
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
-var keystore map[string]KeyModel
+var keystore Keystore
 var liststore map[string]ListModel
 
 func InitializeKeystore() {
 
-	keystore = map[string]KeyModel{
-		"demo_key": {
-			Value:      "42",
-			ExTime:     "30",
-			InsertTime: time.Now(),
+	keystore = Keystore{
+		keys: map[string]KeyModel{
+			"key1": {
+				Value:      "This is working",
+				ExTime:     "20",
+				InsertTime: time.Now(),
+			},
+			"key2": {
+				Value:      "value2",
+				ExTime:     "78",
+				InsertTime: time.Now(),
+			},
 		},
+		mu: sync.Mutex{},
 	}
 }
 

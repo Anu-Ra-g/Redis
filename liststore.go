@@ -1,23 +1,17 @@
 package main
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"sync"
 )
 
 func init() {
 	InitializeListStore()
 }
 
-var listStoreLock sync.Mutex
-
-func qpush(c *gin.Context, ch *[]string) {
-	listStoreLock.Lock()
-	defer listStoreLock.Unlock()
-
-	cmd := *ch
+func qpush(c *gin.Context, ch <-chan *[]string) {
+	req := <-ch
+	cmd := *req
 
 	key := cmd[1]
 
@@ -35,18 +29,12 @@ func qpush(c *gin.Context, ch *[]string) {
 		liststore[key] = val
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "OK",
-	})
-
-	fmt.Println(liststore)
+	//fmt.Println(liststore)
 }
 
-func qpop(c *gin.Context, ch *[]string) {
-	listStoreLock.Lock()
-	defer listStoreLock.Unlock()
-
-	cmd := *ch
+func qpop(c *gin.Context, ch <-chan *[]string) {
+	req := <-ch
+	cmd := *req
 
 	key := cmd[1]
 
@@ -64,13 +52,14 @@ func qpop(c *gin.Context, ch *[]string) {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message": popped_value,
+			"value": popped_value,
 		})
-	} else {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "queue is empty",
-		})
+		return
 	}
 
-	fmt.Println(liststore)
+	c.JSON(http.StatusNotFound, gin.H{
+		"error": "queue is empty",
+	})
+
+	//fmt.Println(liststore)
 }
