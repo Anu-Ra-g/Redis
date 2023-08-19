@@ -1,3 +1,1 @@
-# greedygame_assignment
-# Quick Note
-The underlying functionality is working as mentioned in the assignment. 
+In memory key-value datastore, where the values gets expired after the specified time. 
